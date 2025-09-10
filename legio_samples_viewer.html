@@ -1210,8 +1210,9 @@ function buildHeaderMap(fields){
   map.result_value  = find([/^result value$/, /^valor( resultado)?$/, /^value$/, /^resultado num[eé]rico$/]);
   map.unit          = find([/^unit(s)?$/, /^unidad(es)?$/]);
   if (!map.result_text && map.result) map.result_text = map.result;
-
+  return map;
 }
+
 
 
 	
