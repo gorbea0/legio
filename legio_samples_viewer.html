@@ -225,11 +225,11 @@ tbody tr:hover { background: #f3f4f6 !important; }
   <div id="manualCsvWrap" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3 hidden">
     <div>
       <label class="font-semibold">📁 CSV de registro:</label>
-      <input type="file" id="csvInputMain" accept=".csv" class="block w-full border p-2 rounded">
+      <input type="file" id="csvInputMain" accept=".csv" class="block w-full border p-2 rounded" multiple>
     </div>
     <div>
       <label class="font-semibold">📁 CSV de análisis:</label>
-      <input type="file" id="csvInputDetails" accept=".csv" class="block w-full border p-2 rounded">
+      <input type="file" id="csvInputDetails" accept=".csv" class="block w-full border p-2 rounded" multiple>
     </div>
   </div>
 </div>
@@ -990,50 +990,146 @@ function anySer1DetectadoEnPunto(sp){
       return dd + '-' + mm + '-' + yyyy;
     }
 
+
+// === ESTADO GLOBAL PARA MERGE ===
+var allMain = [];      // todas las filas del CSV principal (sin filtrar)
+var allDetails = [];   // todas las filas del CSV de análisis (detalles)
+var analysesById = new Map(); // índice id -> array items
+// (allFiltered, dataByType, legioById ya existen en tu código)
+
+// === CLAVES ÚNICAS ===
+// Principal: 1 fila por Id (si quieres ser más fino, añade fecha y punto)
+function keyMain(r){
+  const id = String(r["Id Numeric"] || r["Id numeric"] || r.id || "").trim();
+  return id;
+}
+// Detalles: id + componente + valor (texto/num)
+function keyDetail(r){
+  const id   = String(r["Id Numeric"] || r["Id numeric"] || "").trim();
+  const comp = String(r["Component Name"] || r.component || "").trim().toLowerCase();
+  const val  = String(r["Result value"] ?? r["Result text"] ?? r.result_value ?? r.result_text ?? "").trim();
+  return `${id}||${comp}||${val}`;
+}
+
+// === MERGE SIN DUPLICADOS ===
+function mergeUnique(arr, incoming, keyFn){
+  const map = new Map((arr || []).map(r => [keyFn(r), r]));
+  for (const r of (incoming || [])) map.set(keyFn(r), r); // la última gana
+  return [...map.values()];
+}
+
+// Recalcular índice analysesById después de tocar allDetails
+function rebuildAnalysesById(){
+  analysesById = new Map();
+  for (const r of allDetails){
+    const id = String(r["Id Numeric"] || r["Id numeric"] || "").trim();
+    if (!id) continue;
+    const item = {
+      analysis:     String(r["Analysis"]||"").trim(),
+      component:    String(r["Component Name"]||"").trim(),
+      result_text:  String(r["Result text"]||"").trim(),
+      result_value: r["Result value"]
+    };
+    if (!analysesById.has(id)) analysesById.set(id, []);
+    analysesById.get(id).push(item);
+  }
+}
+
+
+// === LECTOR DE ARCHIVOS CON CODIFICACIÓN "LISTA" ===
+async function readFileSmart(file){
+  // 1) Probar como UTF-8 (File.text())
+  let txt = await file.text();
+  // si aparecen � de forma sospechosa, reintentar en Windows-1252
+  if (/\uFFFD/.test(txt)) {
+    const buf = await file.arrayBuffer();
+    try {
+      txt = new TextDecoder('windows-1252').decode(new Uint8Array(buf));
+    } catch { /* nos quedamos con el UTF-8 */ }
+  }
+  return txt;
+}
+
+
+
+
+
+
+
+
+
+	
     // ----------  MAIN CSV  ----------
 	
 	
-   document.getElementById("csvInputMain").addEventListener("change", function(e){
-  var file = e.target.files[0]; if (!file) return;
-  Papa.parse(file, {
-    header: true, skipEmptyLines: true, encoding: "ISO-8859-1",
-    transformHeader: function(h){ return norm(h).replace(/\uFEFF/g,""); },
-    transform: function(v){ return (typeof v === "string" ? norm(v) : v); },
-    complete: function(res){
-      // ⚡ Normalizamos cada fila para asegurarnos de tener el campo "Test schedule"
-      var allRows = res.data.map(function(r){
-        return {
-          ...r,
-          "Test schedule": String(r["Test schedule"] || r["test_schedule"] || "").trim()
-        };
-      });
+document.getElementById("csvInputMain").addEventListener("change", async function(e){
+  const files = e.target.files;
+  if (!files || !files.length) return;
 
-      // Filtrado de las filas que empiezan por LEGIO
-      allFiltered = allRows.filter(function(r){ 
-        return (r["Job Name"]||"").indexOf("LEGIO")===0; 
-      });
+  // 1) cargar y parsear TODOS los ficheros
+  let incoming = [];
+  for (const f of files){
+    const text = await readFileSmart(f);
+    const res = Papa.parse(text, {
+      header: true, skipEmptyLines: true,
+      transformHeader: h => String(h ?? "").replace(/\uFEFF/g,"").trim(),
+    });
+    // normalizamos "Test schedule"
+    const rows = (res.data || []).map(r => ({
+      ...r,
+      "Test schedule": String(r["Test schedule"] || r["test_schedule"] || "").trim()
+    }));
+    incoming = incoming.concat(rows);
+  }
 
-      dataByType = _.groupBy(allFiltered, "Sample type");
-      var types = Object.keys(dataByType);
+  // 2) MERGE sin duplicados por Id
+  allMain = mergeUnique(allMain, incoming, keyMain);
 
-      renderChartByType();
+  // 3) aplicar filtro LEGIO como antes
+  allFiltered = allMain.filter(r => String(r["Job Name"]||"").startsWith("LEGIO"));
 
-      var tabs = document.getElementById("tabButtons");
-      tabs.innerHTML = "";
-      types.forEach(function(type, i){
-        var btn = document.createElement("button");
-        btn.textContent = type;
-        btn.className = "btn-tab";
-        btn.dataset.type = type;
-        btn.onclick = function(){
-          activeType = type;
-          setActiveButton(btn);
-          searchTab.classList.add("hidden");
-          renderTable(dataByType[type]);
-        };
-        if (i===0){ activeType = type; btn.classList.add("active"); }
-        tabs.appendChild(btn);		
-      });
+  // 4) agrupar y refrescar UI
+  dataByType = _.groupBy(allFiltered, "Sample type");
+  const types = Object.keys(dataByType);
+
+  renderChartByType();
+
+  // reconstruir pestañas (igual que hacías)
+  const tabs = document.getElementById("tabButtons");
+  tabs.innerHTML = "";
+  const btnAll = document.createElement("button");
+  btnAll.textContent = "TODOS";
+  btnAll.className = "btn-tab";
+  btnAll.onclick = function(){
+    activeType = null;
+    setActiveButton(btnAll);
+    searchTab.classList.add("hidden");
+    renderTable( applyDateFilterIfAny(allFiltered) );
+  };
+  tabs.appendChild(btnAll);
+
+  types.forEach(function(type, i){
+    const btn = document.createElement("button");
+    btn.textContent = type;
+    btn.className = "btn-tab";
+    btn.dataset.type = type;
+    btn.onclick = function(){
+      activeType = type;
+      setActiveButton(btn);
+      searchTab.classList.add("hidden");
+      renderTable(dataByType[type]);
+    };
+    if (i===0) { activeType = type; btn.classList.add("active"); }
+    tabs.appendChild(btn);
+  });
+
+  // botones extra (incumplimientos / puntos / buscar) — si ya existen, no los dupliques
+  // (deja tu bloque tal cual si lo recreas después de cada carga)
+
+  document.getElementById("tabs").classList.remove("hidden");
+  if (types.length) renderTable(dataByType[types[0]]);
+});
+
 	  
 	  
 		
@@ -1101,80 +1197,93 @@ tabsContainer.prepend(btnAll);
     }
 
     // ---------- DETAILS CSV 2º----------
-    document.getElementById("csvInputDetails").addEventListener("change", function(e){
-      var file = e.target.files[0]; if (!file) return;
-      Papa.parse(file, {
-        header: true, skipEmptyLines: true, encoding: "ISO-8859-1",
-        transformHeader: function(h){ return norm(h).replace(/\uFEFF/g,""); },
-        transform: function(v){ return (typeof v === "string" ? norm(v) : v); },
-        complete: function(res){
-          var map = buildHeaderMap(res.meta && res.meta.fields ? res.meta.fields : []);
-          allDetails = res.data.map(function(row){
-            function get(k){ return row[map[k]] != null ? row[map[k]] : ""; }
-            return {
-              "Analysis":       String(get("analysis")     || "").trim(),
-              "Component Name": normalizeDashes(String(get("component")    || "").trim()),
-              "Id Numeric":     String(get("id_numeric")   || "").trim(),
-              "Id numeric":     String(get("id_numeric")   || "").trim(),
-              "Result text":    String(get("result_text")  || get("result") || "").trim(),
-              "Result value":   get("result_value"),
-              "Unit":           String(get("unit")         || "").trim(),
-			  
-            };
-          });
-		  
-		  
-		  // --- BLOQUE A: construir índice analysesById ---
-analysesById = new Map();
-allDetails.forEach(function(r){
-  var id = cleanId(r["Id Numeric"] || r["Id numeric"]);
-  if (!id) return;
-  var item = {
-    analysis:      String(r["Analysis"]||"").trim(),
-    component:     String(r["Component Name"]||"").trim(),
-    result_text:   String(r["Result text"]||"").trim(),
-    result_value:  r["Result value"]
-  };
-  if (!analysesById.has(id)) analysesById.set(id, []);
-  analysesById.get(id).push(item);
-});
+ document.getElementById("csvInputDetails").addEventListener("change", async function(e){
+  const files = e.target.files;
+  if (!files || !files.length) return;
 
-		  
-	// === Índice de envase por Id ===
-// Valores esperados:
-//   ISO  -> 1 litro
-//   IDEX -> 500 ml
-//   UNKNOWN -> sin dato (lo trataremos como "mixto" si no hay otra muestra con tipo claro)
+  // 1) cargar y parsear TODOS los ficheros
+  let incoming = [];
+  for (const f of files){
+    const text = await readFileSmart(f);
+    const res = Papa.parse(text, {
+      header: true, skipEmptyLines: true,
+      transformHeader: h => String(h ?? "").replace(/\uFEFF/g,"").trim(),
+    });
 
-allDetails.forEach(function(r){
-  var id = cleanId(r["Id Numeric"] || r["Id numeric"]);
-  if (!id) return;
-  var analUp = String(r["Analysis"]||"").trim().toUpperCase();
-  var comp   = String(r["Component Name"]||"").toLowerCase();
-
-  if (analUp === "ENVASE" && /envase/.test(comp)) {
-    var txt = String(r["Result text"] || r["Result value"] || "").toLowerCase();
-    var tipo = /500/.test(txt) || /idex/.test(txt) ? "IDEX"
-             : /(1\s*l|1l|1000)/.test(txt) || /iso/.test(txt) ? "ISO"
-             : "UNKNOWN";
-    envaseById[id] = tipo;
+    const map = buildHeaderMap(res.meta && res.meta.fields ? res.meta.fields : []);
+    const rows = (res.data || []).map(row => {
+      function get(k){ return row[map[k]] != null ? row[map[k]] : ""; }
+      return {
+        "Analysis":       String(get("analysis")     || "").trim(),
+        "Component Name": normalizeDashes(String(get("component")||"").trim()),
+        "Id Numeric":     String(get("id_numeric")   || "").trim(),
+        "Id numeric":     String(get("id_numeric")   || "").trim(),
+        "Result text":    String(get("result_text")  || get("result") || "").trim(),
+        "Result value":   get("result_value"),
+        "Unit":           String(get("unit")         || "").trim(),
+      };
+    });
+    incoming = incoming.concat(rows);
   }
+
+  // 2) MERGE sin duplicados (id + componente + valor)
+  allDetails = mergeUnique(allDetails, incoming, keyDetail);
+
+  // 3) reconstruir índices derivados
+  rebuildAnalysesById();
+
+  // === Índice de envase por Id (igual que antes) ===
+  allDetails.forEach(function(r){
+    var id = cleanId(r["Id Numeric"] || r["Id numeric"]);
+    if (!id) return;
+    var analUp = String(r["Analysis"]||"").trim().toUpperCase();
+    var comp   = String(r["Component Name"]||"").toLowerCase();
+
+    if (analUp === "ENVASE" && /envase/.test(comp)) {
+      var txt = String(r["Result text"] || r["Result value"] || "").toLowerCase();
+      var tipo = /500/.test(txt) || /idex/.test(txt) ? "IDEX"
+               : /(1\s*l|1l|1000)/.test(txt) || /iso/.test(txt) ? "ISO"
+               : "UNKNOWN";
+      envaseById[id] = tipo;
+    }
+  });
+
+  // enriquecer legioById con SER 1 y SER 2-14
+  analysesById.forEach(function(items, id){
+    var det = detectSerotiposEnItems(items);
+    if (!legioById[id]) legioById[id] = { cal:null, sev:-1, display:"", value:NaN, rawText:"" };
+    legioById[id].ser1_detectado    = (det.ser1 === 'Detectado');
+    legioById[id].ser2_14_detectado = (det.ser2_14 === 'Detectado');
+  });
+
+  buildLegioSummary();
+
+  renderChartByType();
+  if (activeType && dataByType[activeType]) renderTable(dataByType[activeType]);
 });
-	  
-		  
-		  
-          buildLegioSummary();
-		  
-		  
-		  
-		 // --- BLOQUE B: enriquecer legioById con SER 1 y SER 2-14 ---
-analysesById.forEach(function(items, id){
-  var det = detectSerotiposEnItems(items);  // usa tu función ya definida
-  if (!legioById[id]) legioById[id] = { cal:null, sev:-1, display:"", value:NaN, rawText:"" };
-  // guarda flags booleanos (y si quieres, el texto)
-  legioById[id].ser1_detectado   = (det.ser1 === 'Detectado');
-  legioById[id].ser2_14_detectado = (det.ser2_14 === 'Detectado');
-});
+
+// La función buildHeaderMap sigue siendo la misma, puedes dejarla justo debajo
+function buildHeaderMap(fields){
+  function n(s){ return String(s).toLowerCase().replace(/\s+/g," ").trim(); }
+  function find(regs){
+    for (var i=0;i<fields.length;i++){
+      var nf = n(fields[i]);
+      for (var j=0;j<regs.length;j++){ if (regs[j].test(nf)) return fields[i]; }
+    }
+    return null;
+  }
+  var map = {};
+  map.analysis      = find([/^analysis$/, /^ensayo$/, /^m[-_]/, /^test$/]);
+  map.component     = find([/^component( name)?$/, /^parameter$/, /^par[aá]metro$/, /^componente$/, /^determinando?$/]);
+  map.id_numeric    = find([/^id numeric$/, /^id num[eé]rico$/, /^id$/, /^sample( id)?$/, /^muestra( id)?$/]);
+  map.result_text   = find([/^result text$/, /^texto de resultado$/, /^resultado( texto)?$/, /^observaciones?$/, /^resultado$/]);
+  map.result        = find([/^result$/, /^resultado$/]);
+  map.result_value  = find([/^result value$/, /^valor( resultado)?$/, /^value$/, /^resultado num[eé]rico$/]);
+  map.unit          = find([/^unit(s)?$/, /^unidad(es)?$/]);
+  if (!map.result_text && map.result) map.result_text = map.result;
+  return map;
+}
+
  
 		  
 		  
