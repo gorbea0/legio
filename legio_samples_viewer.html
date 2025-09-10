@@ -1059,8 +1059,10 @@ async function readFileSmart(file){
 
 
 	
-    // ----------  MAIN CSV  ----------
+   
 	
+
+// ----------  MAIN CSV  ----------
 document.getElementById("csvInputMain").addEventListener("change", async function(e){
   const files = e.target.files;
   if (!files || !files.length) return;
@@ -1118,22 +1120,19 @@ document.getElementById("csvInputMain").addEventListener("change", async functio
     tabs.appendChild(btn);
   });
 
-  // Otros botones (incumplimientos / puntos / buscar)… si ya los creas aquí, no los dupliques en otro sitio
-  // (tu bloque original para estos tres botones puede ir aquí; deja uno solo)
-
   document.getElementById("tabs").classList.remove("hidden");
   if (types.length) renderTable(dataByType[types[0]]);
 });
 
-
+// ayuda visual para tabs
 function setActiveButton(btn){
   var all = document.querySelectorAll("#tabButtons .btn-tab");
   for (var i=0;i<all.length;i++) all[i].classList.remove("active");
   btn.classList.add("active");
 }
 
-
-	document.getElementById("csvInputDetails").addEventListener("change", async function(e){
+// ----------  DETAILS CSV  ----------
+document.getElementById("csvInputDetails").addEventListener("change", async function(e){
   const files = e.target.files;
   if (!files || !files.length) return;
 
@@ -1166,7 +1165,7 @@ function setActiveButton(btn){
 
   // índice de envase
   allDetails.forEach(function(r){
-    var id = cleanId(r["Id Numeric"] || r["Id numeric"]);
+    var id = String(r["Id Numeric"] || r["Id numeric"] || "").trim();
     if (!id) return;
     var analUp = String(r["Analysis"]||"").trim().toUpperCase();
     var comp   = String(r["Component Name"]||"").toLowerCase();
@@ -1192,6 +1191,7 @@ function setActiveButton(btn){
   if (activeType && dataByType[activeType]) renderTable(dataByType[activeType]);
 });
 
+// ---------- buildHeaderMap (UNA sola vez) ----------
 function buildHeaderMap(fields){
   function n(s){ return String(s).toLowerCase().replace(/\s+/g," ").trim(); }
   function find(regs){
@@ -1212,6 +1212,8 @@ function buildHeaderMap(fields){
   if (!map.result_text && map.result) map.result_text = map.result;
   return map;
 }
+
+
 
     // ---------- GRÁFICO PRINCIPAL (doble barra) ----------
     function renderChartByType(){
