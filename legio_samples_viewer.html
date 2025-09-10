@@ -993,7 +993,7 @@ function anySer1DetectadoEnPunto(sp){
 
 // === ESTADO GLOBAL PARA MERGE ===
 var allMain = [];      // todas las filas del CSV principal (sin filtrar)
-var allDetails = [];   // todas las filas del CSV de análisis (detalles)
+
 var analysesById = new Map(); // índice id -> array items
 // (allFiltered, dataByType, legioById ya existen en tu código)
 
@@ -4754,12 +4754,7 @@ renderChartByType();
         });
       }
 
-      // Refresca gráfico/tabla si ya hay principal
-      renderChartByType();
-      if (activeType && dataByType[activeType]) renderTable(dataByType[activeType]);
-      else if (allFiltered && allFiltered.length) renderTable(allFiltered);
-    }
-  });
+
   
   updateCsvLoadedMessage();
 }
