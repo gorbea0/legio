@@ -1061,12 +1061,10 @@ async function readFileSmart(file){
 	
     // ----------  MAIN CSV  ----------
 	
-	
 document.getElementById("csvInputMain").addEventListener("change", async function(e){
   const files = e.target.files;
   if (!files || !files.length) return;
 
-  // 1) cargar y parsear TODOS los ficheros
   let incoming = [];
   for (const f of files){
     const text = await readFileSmart(f);
@@ -1074,7 +1072,6 @@ document.getElementById("csvInputMain").addEventListener("change", async functio
       header: true, skipEmptyLines: true,
       transformHeader: h => String(h ?? "").replace(/\uFEFF/g,"").trim(),
     });
-    // normalizamos "Test schedule"
     const rows = (res.data || []).map(r => ({
       ...r,
       "Test schedule": String(r["Test schedule"] || r["test_schedule"] || "").trim()
@@ -1082,21 +1079,18 @@ document.getElementById("csvInputMain").addEventListener("change", async functio
     incoming = incoming.concat(rows);
   }
 
-  // 2) MERGE sin duplicados por Id
   allMain = mergeUnique(allMain, incoming, keyMain);
 
-  // 3) aplicar filtro LEGIO como antes
   allFiltered = allMain.filter(r => String(r["Job Name"]||"").startsWith("LEGIO"));
-
-  // 4) agrupar y refrescar UI
   dataByType = _.groupBy(allFiltered, "Sample type");
   const types = Object.keys(dataByType);
 
   renderChartByType();
 
-  // reconstruir pestañas (igual que hacías)
   const tabs = document.getElementById("tabButtons");
   tabs.innerHTML = "";
+
+  // Botón TODOS
   const btnAll = document.createElement("button");
   btnAll.textContent = "TODOS";
   btnAll.className = "btn-tab";
@@ -1108,6 +1102,7 @@ document.getElementById("csvInputMain").addEventListener("change", async functio
   };
   tabs.appendChild(btnAll);
 
+  // Botones por tipo
   types.forEach(function(type, i){
     const btn = document.createElement("button");
     btn.textContent = type;
@@ -1119,89 +1114,29 @@ document.getElementById("csvInputMain").addEventListener("change", async functio
       searchTab.classList.add("hidden");
       renderTable(dataByType[type]);
     };
-    if (i===0) { activeType = type; btn.classList.add("active"); }
+    if (i===0){ activeType = type; btn.classList.add("active"); }
     tabs.appendChild(btn);
   });
 
-  // botones extra (incumplimientos / puntos / buscar) — si ya existen, no los dupliques
-  // (deja tu bloque tal cual si lo recreas después de cada carga)
+  // Otros botones (incumplimientos / puntos / buscar)… si ya los creas aquí, no los dupliques en otro sitio
+  // (tu bloque original para estos tres botones puede ir aquí; deja uno solo)
 
   document.getElementById("tabs").classList.remove("hidden");
   if (types.length) renderTable(dataByType[types[0]]);
 });
 
-	  
-	  
-		
-		// Botón "TODOS" (sin filtro por tipo; respeta fechas si las hay)
-const btnAll = document.createElement("button");
-btnAll.textContent = "TODOS";
-btnAll.className = "btn-tab";
-btnAll.onclick = function(){
-  activeType = null;
-  setActiveButton(btnAll);
-  searchTab.classList.add("hidden");
-  renderTable( applyDateFilterIfAny(allFiltered) );
-};
 
-tabsContainer.prepend(btnAll);
-  
-	  
-
-      // Incumplimientos
-      incumplBtn = document.createElement("button");
-      incumplBtn.textContent = "⚠️ Incumplimientos";
-      incumplBtn.className = "btn-tab btn-danger";
-      incumplBtn.onclick = function(){
-        setActiveButton(incumplBtn);
-        searchTab.classList.add("hidden");
-        renderIncumplimientos();
-      };
-      tabs.appendChild(incumplBtn);
-
-      // Puntos con positivos
-      puntosBtn = document.createElement("button");
-      puntosBtn.textContent = "📌 Puntos con positivos";
-      puntosBtn.className = "btn-tab";
-      puntosBtn.onclick = function(){
-        setActiveButton(puntosBtn);
-        searchTab.classList.add("hidden");
-        renderPuntosPositivos();
-      };
-      tabs.appendChild(puntosBtn);
-
-      // Buscar
-      searchBtn = document.createElement("button");
-      searchBtn.textContent = "🔍 Buscar";
-      searchBtn.className = "btn-tab";
-      searchBtn.onclick = function(){
-        setActiveButton(searchBtn);
-        tabContent.innerHTML = "";
-        searchTab.classList.remove("hidden");
-        searchInputPoint.focus();
-        updateSearchResults();
-      };
-      tabs.appendChild(searchBtn);
-
-      document.getElementById("tabs").classList.remove("hidden");
-      if (types.length) renderTable(dataByType[types[0]]);
-    }
-  });
-});
+function setActiveButton(btn){
+  var all = document.querySelectorAll("#tabButtons .btn-tab");
+  for (var i=0;i<all.length;i++) all[i].classList.remove("active");
+  btn.classList.add("active");
+}
 
 
-    function setActiveButton(btn){
-      var all = document.querySelectorAll("#tabButtons .btn-tab");
-      for (var i=0;i<all.length;i++) all[i].classList.remove("active");
-      btn.classList.add("active");
-    }
-
-    // ---------- DETAILS CSV 2º----------
- document.getElementById("csvInputDetails").addEventListener("change", async function(e){
+	document.getElementById("csvInputDetails").addEventListener("change", async function(e){
   const files = e.target.files;
   if (!files || !files.length) return;
 
-  // 1) cargar y parsear TODOS los ficheros
   let incoming = [];
   for (const f of files){
     const text = await readFileSmart(f);
@@ -1226,19 +1161,15 @@ tabsContainer.prepend(btnAll);
     incoming = incoming.concat(rows);
   }
 
-  // 2) MERGE sin duplicados (id + componente + valor)
   allDetails = mergeUnique(allDetails, incoming, keyDetail);
-
-  // 3) reconstruir índices derivados
   rebuildAnalysesById();
 
-  // === Índice de envase por Id (igual que antes) ===
+  // índice de envase
   allDetails.forEach(function(r){
     var id = cleanId(r["Id Numeric"] || r["Id numeric"]);
     if (!id) return;
     var analUp = String(r["Analysis"]||"").trim().toUpperCase();
     var comp   = String(r["Component Name"]||"").toLowerCase();
-
     if (analUp === "ENVASE" && /envase/.test(comp)) {
       var txt = String(r["Result text"] || r["Result value"] || "").toLowerCase();
       var tipo = /500/.test(txt) || /idex/.test(txt) ? "IDEX"
@@ -1248,7 +1179,7 @@ tabsContainer.prepend(btnAll);
     }
   });
 
-  // enriquecer legioById con SER 1 y SER 2-14
+  // flags SER 1 / SER 2-14
   analysesById.forEach(function(items, id){
     var det = detectSerotiposEnItems(items);
     if (!legioById[id]) legioById[id] = { cal:null, sev:-1, display:"", value:NaN, rawText:"" };
@@ -1257,12 +1188,10 @@ tabsContainer.prepend(btnAll);
   });
 
   buildLegioSummary();
-
   renderChartByType();
   if (activeType && dataByType[activeType]) renderTable(dataByType[activeType]);
 });
 
-// La función buildHeaderMap sigue siendo la misma, puedes dejarla justo debajo
 function buildHeaderMap(fields){
   function n(s){ return String(s).toLowerCase().replace(/\s+/g," ").trim(); }
   function find(regs){
@@ -1283,6 +1212,9 @@ function buildHeaderMap(fields){
   if (!map.result_text && map.result) map.result_text = map.result;
   return map;
 }
+
+
+	
 
  
 		  
