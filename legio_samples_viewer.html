@@ -1063,7 +1063,7 @@ async function readFileSmart(file){
 	
 
 // ----------  MAIN CSV  ----------
-document.getElementById("csvInputMain").addEventListener("change", async function(e){
+;document.getElementById("csvInputMain").addEventListener("change", async function(e){
   const files = e.target.files;
   if (!files || !files.length) return;
 
@@ -1132,7 +1132,7 @@ function setActiveButton(btn){
 }
 
 // ----------  DETAILS CSV  ----------
-document.getElementById("csvInputDetails").addEventListener("change", async function(e){
+;document.getElementById("csvInputDetails").addEventListener("change", async function(e){
   const files = e.target.files;
   if (!files || !files.length) return;
 
@@ -4695,9 +4695,10 @@ function parseSamplesFromText(csvText){ allSamples
  */
 function parseAnalysesFromText(csvText){
   Papa.parse(csvText, {
-    header: true, skipEmptyLines: true,
+    header: true,
+    skipEmptyLines: true,
     complete: (res) => {
-      // Mapeo encabezados flexible (idéntico a tu handler)
+      // Mapeo encabezados flexible
       function n(s){ return String(s).toLowerCase().replace(/\s+/g," ").trim(); }
       function find(fields, regs){
         for (let i=0;i<fields.length;i++){
@@ -4749,20 +4750,24 @@ function parseAnalysesFromText(csvText){
       // Índice de envase
       envaseById = {};
       allDetails.forEach(r => {
-        const id = String(r["Id Numeric"] || r["Id numeric"] || "").trim();
-        const analUp = String(r["Analysis"]||"").trim().toUpperCase();
-        const comp   = String(r["Component Name"]||"").toLowerCase();
+        const id    = String(r["Id Numeric"] || r["Id numeric"] || "").trim();
+        const analUp= String(r["Analysis"]||"").trim().toUpperCase();
+        const comp  = String(r["Component Name"]||"").toLowerCase();
         if (analUp === "ENVASE" && /envase/.test(comp)) {
-          const txt = String(r["Result text"] || r["Result value"] || "").toLowerCase();
+          const txt  = String(r["Result text"] || r["Result value"] || "").toLowerCase();
           const tipo = /500/.test(txt) || /idex/.test(txt) ? "IDEX"
-                   : /(1\s*l|1l|1000)/.test(txt) || /iso/.test(txt) ? "ISO"
-                   : "UNKNOWN";
+                    : /(1\s*l|1l|1000)/.test(txt) || /iso/.test(txt) ? "ISO"
+                    : "UNKNOWN";
           envaseById[id] = tipo;
         }
       });
+    } // ← cierre del complete
+  });   // ← cierre de Papa.parse
+}       // ← cierre de la función
 
-      // Resumen de Legionella (usa tu función existente)
-     // ... ya has rellenado analyses y analysesById
+
+      // Resumen de Legionella 
+ 
 buildLegioSummary();        // <- ahora existe en global
 renderChartByType();
 
