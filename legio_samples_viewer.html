@@ -1211,30 +1211,7 @@ function buildHeaderMap(fields){
   map.unit          = find([/^unit(s)?$/, /^unidad(es)?$/]);
   if (!map.result_text && map.result) map.result_text = map.result;
   return map;
-}
-
-
-
-	
-
- 
-		  
-		  
-		  
-
-        var map = {};
-        map.analysis      = find([/^analysis$/, /^ensayo$/, /^m[-_]/, /^test$/]);
-        map.component     = find([/^component( name)?$/, /^parameter$/, /^par[aá]metro$/, /^componente$/, /^determinando?$/]);
-        map.id_numeric    = find([/^id numeric$/, /^id num[eé]rico$/, /^id$/, /^sample( id)?$/, /^muestra( id)?$/]);
-        map.result_text   = find([/^result text$/, /^texto de resultado$/, /^resultado( texto)?$/, /^observaciones?$/, /^resultado$/]);
-        map.result        = find([/^result$/, /^resultado$/]);
-        map.result_value  = find([/^result value$/, /^valor( resultado)?$/, /^value$/, /^resultado num[eé]rico$/]);
-        map.unit          = find([/^unit(s)?$/, /^unidad(es)?$/]);
-        if (!map.result_text && map.result) map.result_text = map.result;
-        return map;
-      }
-
-   
+}  
     });
 
     // ---------- GRÁFICO PRINCIPAL (doble barra) ----------
