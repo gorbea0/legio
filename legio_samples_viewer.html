@@ -1220,22 +1220,7 @@ function buildHeaderMap(fields){
 		  
 		  
 		  
-		  
-		  
-          renderChartByType();
-          if (activeType && dataByType[activeType]) renderTable(dataByType[activeType]);
-        }
-      });
 
-      function buildHeaderMap(fields){
-        function n(s){ return String(s).toLowerCase().replace(/\s+/g," ").trim(); }
-        function find(regs){
-          for (var i=0;i<fields.length;i++){
-            var nf = n(fields[i]);
-            for (var j=0;j<regs.length;j++){ if (regs[j].test(nf)) return fields[i]; }
-          }
-          return null;
-        }
         var map = {};
         map.analysis      = find([/^analysis$/, /^ensayo$/, /^m[-_]/, /^test$/]);
         map.component     = find([/^component( name)?$/, /^parameter$/, /^par[aá]metro$/, /^componente$/, /^determinando?$/]);
