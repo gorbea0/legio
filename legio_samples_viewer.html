@@ -1063,133 +1063,127 @@ async function readFileSmart(file){
 	
 
 // ----------  MAIN CSV  ----------
-;document.getElementById("csvInputMain").addEventListener("change", async function(e){
-  const files = e.target.files;
-  if (!files || !files.length) return;
+// MAIN CSV
+document.getElementById("csvInputMain").addEventListener("change", function(e){
+  (async () => {
+    const files = e.target.files;
+    if (!files || !files.length) return;
 
-  let incoming = [];
-  for (const f of files){
-    const text = await readFileSmart(f);
-    const res = Papa.parse(text, {
-      header: true, skipEmptyLines: true,
-      transformHeader: h => String(h ?? "").replace(/\uFEFF/g,"").trim(),
-    });
-    const rows = (res.data || []).map(r => ({
-      ...r,
-      "Test schedule": String(r["Test schedule"] || r["test_schedule"] || "").trim()
-    }));
-    incoming = incoming.concat(rows);
-  }
-
-  allMain = mergeUnique(allMain, incoming, keyMain);
-
-  allFiltered = allMain.filter(r => String(r["Job Name"]||"").startsWith("LEGIO"));
-  dataByType = _.groupBy(allFiltered, "Sample type");
-  const types = Object.keys(dataByType);
-
-  renderChartByType();
-
-  const tabs = document.getElementById("tabButtons");
-  tabs.innerHTML = "";
-
-  // Botón TODOS
-  const btnAll = document.createElement("button");
-  btnAll.textContent = "TODOS";
-  btnAll.className = "btn-tab";
-  btnAll.onclick = function(){
-    activeType = null;
-    setActiveButton(btnAll);
-    searchTab.classList.add("hidden");
-    renderTable( applyDateFilterIfAny(allFiltered) );
-  };
-  tabs.appendChild(btnAll);
-
-  // Botones por tipo
-  types.forEach(function(type, i){
-    const btn = document.createElement("button");
-    btn.textContent = type;
-    btn.className = "btn-tab";
-    btn.dataset.type = type;
-    btn.onclick = function(){
-      activeType = type;
-      setActiveButton(btn);
-      searchTab.classList.add("hidden");
-      renderTable(dataByType[type]);
-    };
-    if (i===0){ activeType = type; btn.classList.add("active"); }
-    tabs.appendChild(btn);
-  });
-
-  document.getElementById("tabs").classList.remove("hidden");
-  if (types.length) renderTable(dataByType[types[0]]);
-});
-
-// ayuda visual para tabs
-function setActiveButton(btn){
-  var all = document.querySelectorAll("#tabButtons .btn-tab");
-  for (var i=0;i<all.length;i++) all[i].classList.remove("active");
-  btn.classList.add("active");
-}
-
-// ----------  DETAILS CSV  ----------
-;document.getElementById("csvInputDetails").addEventListener("change", async function(e){
-  const files = e.target.files;
-  if (!files || !files.length) return;
-
-  let incoming = [];
-  for (const f of files){
-    const text = await readFileSmart(f);
-    const res = Papa.parse(text, {
-      header: true, skipEmptyLines: true,
-      transformHeader: h => String(h ?? "").replace(/\uFEFF/g,"").trim(),
-    });
-
-    const map = buildHeaderMap(res.meta && res.meta.fields ? res.meta.fields : []);
-    const rows = (res.data || []).map(row => {
-      function get(k){ return row[map[k]] != null ? row[map[k]] : ""; }
-      return {
-        "Analysis":       String(get("analysis")     || "").trim(),
-        "Component Name": normalizeDashes(String(get("component")||"").trim()),
-        "Id Numeric":     String(get("id_numeric")   || "").trim(),
-        "Id numeric":     String(get("id_numeric")   || "").trim(),
-        "Result text":    String(get("result_text")  || get("result") || "").trim(),
-        "Result value":   get("result_value"),
-        "Unit":           String(get("unit")         || "").trim(),
-      };
-    });
-    incoming = incoming.concat(rows);
-  }
-
-  allDetails = mergeUnique(allDetails, incoming, keyDetail);
-  rebuildAnalysesById();
-
-  // índice de envase
-  allDetails.forEach(function(r){
-    var id = String(r["Id Numeric"] || r["Id numeric"] || "").trim();
-    if (!id) return;
-    var analUp = String(r["Analysis"]||"").trim().toUpperCase();
-    var comp   = String(r["Component Name"]||"").toLowerCase();
-    if (analUp === "ENVASE" && /envase/.test(comp)) {
-      var txt = String(r["Result text"] || r["Result value"] || "").toLowerCase();
-      var tipo = /500/.test(txt) || /idex/.test(txt) ? "IDEX"
-               : /(1\s*l|1l|1000)/.test(txt) || /iso/.test(txt) ? "ISO"
-               : "UNKNOWN";
-      envaseById[id] = tipo;
+    let incoming = [];
+    for (const f of files){
+      const text = await readFileSmart(f);
+      const res = Papa.parse(text, {
+        header: true, skipEmptyLines: true,
+        transformHeader: h => String(h ?? "").replace(/\uFEFF/g,"").trim(),
+      });
+      const rows = (res.data || []).map(r => ({
+        ...r,
+        "Test schedule": String(r["Test schedule"] || r["test_schedule"] || "").trim()
+      }));
+      incoming = incoming.concat(rows);
     }
-  });
 
-  // flags SER 1 / SER 2-14
-  analysesById.forEach(function(items, id){
-    var det = detectSerotiposEnItems(items);
-    if (!legioById[id]) legioById[id] = { cal:null, sev:-1, display:"", value:NaN, rawText:"" };
-    legioById[id].ser1_detectado    = (det.ser1 === 'Detectado');
-    legioById[id].ser2_14_detectado = (det.ser2_14 === 'Detectado');
-  });
+    allMain = mergeUnique(allMain, incoming, keyMain);
+    allFiltered = allMain.filter(r => String(r["Job Name"]||"").startsWith("LEGIO"));
+    dataByType = _.groupBy(allFiltered, "Sample type");
+    const types = Object.keys(dataByType);
 
-  buildLegioSummary();
-  renderChartByType();
-  if (activeType && dataByType[activeType]) renderTable(dataByType[activeType]);
+    renderChartByType();
+    const tabs = document.getElementById("tabButtons");
+    tabs.innerHTML = "";
+    const btnAll = document.createElement("button");
+    btnAll.textContent = "TODOS";
+    btnAll.className = "btn-tab";
+    btnAll.onclick = function(){
+      activeType = null;
+      setActiveButton(btnAll);
+      searchTab.classList.add("hidden");
+      renderTable( applyDateFilterIfAny(allFiltered) );
+    };
+    tabs.appendChild(btnAll);
+
+    types.forEach(function(type, i){
+      const btn = document.createElement("button");
+      btn.textContent = type;
+      btn.className = "btn-tab";
+      btn.dataset.type = type;
+      btn.onclick = function(){
+        activeType = type;
+        setActiveButton(btn);
+        searchTab.classList.add("hidden");
+        renderTable(dataByType[type]);
+      };
+      if (i===0){ activeType = type; btn.classList.add("active"); }
+      tabs.appendChild(btn);
+    });
+
+    document.getElementById("tabs").classList.remove("hidden");
+    if (types.length) renderTable(dataByType[types[0]]);
+  })().catch(console.error);
 });
+
+// DETAILS CSV
+document.getElementById("csvInputDetails").addEventListener("change", function(e){
+  (async () => {
+    const files = e.target.files;
+    if (!files || !files.length) return;
+
+    let incoming = [];
+    for (const f of files){
+      const text = await readFileSmart(f);
+      const res = Papa.parse(text, {
+        header: true, skipEmptyLines: true,
+        transformHeader: h => String(h ?? "").replace(/\uFEFF/g,"").trim(),
+      });
+
+      const map = buildHeaderMap(res.meta && res.meta.fields ? res.meta.fields : []);
+      const rows = (res.data || []).map(row => {
+        function get(k){ return row[map[k]] != null ? row[map[k]] : ""; }
+        return {
+          "Analysis":       String(get("analysis")     || "").trim(),
+          "Component Name": normalizeDashes(String(get("component")||"").trim()),
+          "Id Numeric":     String(get("id_numeric")   || "").trim(),
+          "Id numeric":     String(get("id_numeric")   || "").trim(),
+          "Result text":    String(get("result_text")  || get("result") || "").trim(),
+          "Result value":   get("result_value"),
+          "Unit":           String(get("unit")         || "").trim(),
+        };
+      });
+      incoming = incoming.concat(rows);
+    }
+
+    allDetails = mergeUnique(allDetails, incoming, keyDetail);
+    rebuildAnalysesById();
+
+    // índice de envase
+    allDetails.forEach(function(r){
+      const id = String(r["Id Numeric"] || r["Id numeric"] || "").trim();
+      if (!id) return;
+      const analUp = String(r["Analysis"]||"").trim().toUpperCase();
+      const comp   = String(r["Component Name"]||"").toLowerCase();
+      if (analUp === "ENVASE" && /envase/.test(comp)) {
+        const txt = String(r["Result text"] || r["Result value"] || "").toLowerCase();
+        const tipo = /500/.test(txt) || /idex/.test(txt) ? "IDEX"
+                   : /(1\s*l|1l|1000)/.test(txt) || /iso/.test(txt) ? "ISO"
+                   : "UNKNOWN";
+        envaseById[id] = tipo;
+      }
+    });
+
+    // flags SER 1 / SER 2-14
+    analysesById.forEach(function(items, id){
+      const det = detectSerotiposEnItems(items);
+      if (!legioById[id]) legioById[id] = { cal:null, sev:-1, display:"", value:NaN, rawText:"" };
+      legioById[id].ser1_detectado    = (det.ser1 === 'Detectado');
+      legioById[id].ser2_14_detectado = (det.ser2_14 === 'Detectado');
+    });
+
+    buildLegioSummary();
+    renderChartByType();
+    if (activeType && dataByType[activeType]) renderTable(dataByType[activeType]);
+  })().catch(console.error);
+});
+
 
 // ---------- buildHeaderMap (UNA sola vez) ----------
 function buildHeaderMap(fields){
