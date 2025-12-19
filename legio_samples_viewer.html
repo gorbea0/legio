@@ -771,12 +771,14 @@ body.modal-open #globalToolbar { display: none !important; }
 
 window.URL_SAMPLES_LIST  = [
   'https://raw.githubusercontent.com/gorbea0/LIMS/main/REPORTER_SAMPLE_20250905.CSV',
-  'https://raw.githubusercontent.com/gorbea0/LIMS/main/REPORTER_SAMPLE_20251010.CSV',
+ 
+  'https://raw.githubusercontent.com/gorbea0/LIMS/main/REPORTER_SAMPLE_20251219.CSV'
   
 ];
 window.URL_ANALYSES_LIST = [
   'https://raw.githubusercontent.com/gorbea0/LIMS/main/REPORTER 5oct.CSV',
-  'https://raw.githubusercontent.com/gorbea0/LIMS/main/REPORTER_ANALIS_20251010.CSV',
+  'https://raw.githubusercontent.com/gorbea0/LIMS/main/REPORTER_ANALIS_20251219.CSV',
+  
   
 ];
 
@@ -2136,18 +2138,27 @@ function renderRiesgo3Anios(){
     out.innerHTML = "";
 
     const inp = document.getElementById("risk3Start");
-    const start = inp && inp.value ? new Date(inp.value + "T00:00:00") : defaultStart;
+	
+	
+    const end = inp && inp.value ? new Date(inp.value + "T00:00:00") : defaultStart;
 
-    const p0s = new Date(start.getTime());
-    const p0e = _addDays(p0s, 365);
-    const p1s = _addDays(p0s, 365);
-    const p1e = _addDays(p0s, 365*2);
-    const p2s = _addDays(p0s, 365*2);
-    const p2e = _addDays(p0s, 365*3);
+// 3 periodos hacia atrás (3×365d) terminando en 'end'
+const p2e = new Date(end.getTime());      // fin del periodo más reciente
+const p2s = _addDays(p2e, -365);
+
+const p1e = new Date(p2s.getTime());
+const p1s = _addDays(p1e, -365);
+
+const p0e = new Date(p1s.getTime());
+const p0s = _addDays(p0e, -365);
+
+	
+	
 
     const rangeEl = document.getElementById("risk3Range");
     if (rangeEl){
-      rangeEl.textContent = `Rango total: ${fmtDateOnly(p0s)} → ${fmtDateOnly(p2e)} (3×365d)`;
+      rangeEl.textContent = `Rango total: ${fmtDateOnly(p0s)} → ${fmtDateOnly(p2e)} (3×365d, hasta la fecha seleccionada)`;
+
     }
 
     function periodIndex(d){
